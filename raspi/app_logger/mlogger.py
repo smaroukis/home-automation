@@ -1,6 +1,3 @@
-# TODO - add plotter member to also handle data
-
-
 """
 implements data logging class
 """

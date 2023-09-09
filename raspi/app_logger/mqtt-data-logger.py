@@ -1,7 +1,3 @@
-## example usage: python mqtt-data-logger.py -h 192.168.0.17 -d -t test
-## ERROR: plotting/animation function is not able to update in the background
-# could be a threading/scope issue 
-
 
 # modified from http://www.steves-internet-guide.com/download/mqtt-data-logger/
 """
@@ -19,13 +15,11 @@ import mlogger as mlogger
 import threading
 from queue import Queue
 from command import command_input
-import plotter as plotter
 import command
 import sys
 print("Python version is", sys.version_info)
 
 q_log =Queue()
-q_plot = Queue()
 
 class MQTTClient(mqtt.Client):#extend the paho client class
    run_flag=False #global flag used in multi loop
@@ -106,7 +100,6 @@ def on_message(client,userdata, msg):
     
 # TODO - can remove json parsing here
 # TODO - look into formatting for writing to csv file
-# Affects: Updates a data dictionary and adds it to the queue for logging and plotting
 # Time is a UTC float
 def message_handler(client,msg,topic):
     data=dict()
@@ -123,7 +116,6 @@ def message_handler(client,msg,topic):
     if command.options["storechangesonly"]:
         if has_changed(client,topic,msg):
             client.q_log.put(data) #put messages on queue
-            # NOTE - putting messages on queue will trigger the log_worker which also calls the Plotter
     else:
         client.q_log.put(data) #put messages on queue
 
@@ -166,14 +158,6 @@ def log_worker():
                 # TODO check how float is converted
                 results_csv = "{}, {}, {}".format(results["time"], results["topic"], results["message"])
                 log.log_data(results_csv)
-
-            # Plotting 
-            # add to plotting queue, see plotter update 
-            x = results["time"]
-            y = results["message"]
-            q_plot.put({'x': x, 'y': y}) 
-            print("(log_worker): put messages on plotting queue")
-
     log.close_file()
 
 # ---------------- MAIN -------------------------
@@ -234,14 +218,6 @@ if options["storechangesonly"]:
     print("starting storing only changed data")
 else:
     print("starting storing all data")
-    
-## Setup Plotter
-if options["plotter"]:
-    plot_saveas = "{}.png".format(log.file_name)
-    logging.getLogger('matplotlib.font_manager').disabled = True # to silence matplotlib.font_manager debug output
-    plot = plotter.Plotter(q_plot, plot_saveas)
-    logging.info("Created plotter → {}".format(plot_saveas))
-    plot.show()
 
 ## Set Up Thread for Log Worker
 #Log_worker_flag=True
@@ -270,7 +246,6 @@ except KeyboardInterrupt:
     print("interrrupted by keyboard")
 
 # If keyboard interrupt, handle shutdown
-del plot
 client.loop_stop() #start loop
 Log_worker_flag=False #stop logging thread
 time.sleep(5)
